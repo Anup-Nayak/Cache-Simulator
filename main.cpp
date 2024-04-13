@@ -16,7 +16,7 @@ using namespace std;
 
 struct CacheBlock {
     bool validBit = false;
-    // bool dirtyBit = false;
+    bool dirtyBit = false;
     ull tagBits = 0;
     // unsigned long long lastUsed = 0; 
 };
@@ -38,6 +38,8 @@ class Cache {
         ull storeHits=0;
         ull storeMisses=0;
         ull cycles=0;
+        ull writeToMemory=0;
+        ull readFromMemory=0;
 
         vector<vector<CacheBlock>> cache;
 
@@ -55,28 +57,68 @@ class Cache {
         }
 
 
-        void load(ull adr, ull setIndexBits,ull blockOffsetBits,ull tagBits,ull setNum,ull offset,bool hit){
+        void load(ull adr, ull setIndexBits,ull blockOffsetBits,ull tagValue,ull setNum,ull offset,bool hit){
+            // lru and fifo part
             loads++;
             cout << "load " << adr << endl;
             
             if(hit){
                 loadHits++;
             }else{
+                // determine index using eviction method.
+                ull index = 0;
+                if(cache[setIndexBits][index].dirtyBit == true){
+                    // store to main memory
+                    writeToMemory++;
+                }else{
+                    cache[setIndexBits][index].validBit = true;
+                    cache[setIndexBits][index].tagBits = tagValue;
+                }
                 loadMisses++;
+                readFromMemory++;
             }
         };
 
 
-        void store(ull adr, ull setIndexBits,ull blockOffsetBits,ull tagBits,ull setNum,ull offset,bool hit){
+        void store(ull adr, ull setIndexBits,ull blockOffsetBits,ull tagValue,ull setNum,ull offset,bool hit,ull index){
             stores++;
             cout << "store " << adr << endl;
-            cout << setIndexBits << " "  << blockOffsetBits << " " << tagBits << " " << setNum << " " << offset << endl;
+            // cout << setIndexBits << " "  << blockOffsetBits << " " << tagBits << " " << setNum << " " << offset << endl;
             
+
             if(hit){
                 storeHits++;
+                if(writeThrough){
+                    //writeThrough
+                    writeToMemory++;
+
+                }else{
+                    //writeBack
+                    cache[setIndexBits][index].dirtyBit == true;                    
+                    cache[setIndexBits][index].validBit = true;
+                    cache[setIndexBits][index].tagBits = tagValue;
+                }
             }else{
                 storeMisses++;
+                if(writeAllocate){
+                    ull allocatedIndex = 0;                   
+                    if(writeThrough){
+                        // find out allocated index
+                        cache[setIndexBits][allocatedIndex].validBit = true;
+                        cache[setIndexBits][allocatedIndex].tagBits = tagValue;
+                        writeToMemory++;
+                    }else{
+                        cache[setIndexBits][allocatedIndex].dirtyBit == true;                    
+                        cache[setIndexBits][allocatedIndex].validBit = true;
+                        cache[setIndexBits][allocatedIndex].tagBits = tagValue;
+                    }
+                }else{
+                    writeToMemory++;
+                }
             }
+            
+
+            
         };
 
 
@@ -99,19 +141,22 @@ class Cache {
 
             // check if it is a hit
             bool hit = false;
+            ull index = 0;
             for(auto& block : cache[setIndexBits]){
                 if(block.validBit && block.tagBits == tagValue){
                     hit = true;
+                    index++;
                 }
             }
 
+        
             if(type == 'l'){
                 cycles++;
                 load(adr,setIndexBits,blockOffsetBits,tagValue,setNum,offset,hit);
             }
             else if(type == 's'){
                 cycles++;
-                store(adr,setIndexBits,blockOffsetBits,tagValue,setNum,offset,hit);
+                store(adr,setIndexBits,blockOffsetBits,tagValue,setNum,offset,hit,index);
             }
         }
 };
