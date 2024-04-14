@@ -15,19 +15,19 @@ using namespace std;
 
 #define ull unsigned long long
 
-struct Set {
-    vector<CacheBlock> SetBlocks;
-    queue <int> fifo;
-    bool full = false;
-};
-
 struct CacheBlock {
     bool validBit = false;
     bool dirtyBit = false;
     ull tagBits = 0;
     ull setIndex = -1;
-    // unsigned long long lastUsed = 0; 
+    
 };
+
+struct Set {
+    vector<CacheBlock> SetBlocks;
+    queue <int> fifo;
+};
+
 
 class Cache {
 
@@ -73,17 +73,17 @@ class Cache {
 
 
         void load(ull adr, ull setIndexBits,ull blockOffsetBits,ull tagValue,ull setNum,ull offset,bool hit,ull index){
-            // lru and fifo part
             
             loads++;
-            cout << "load " << adr << endl;
             
             if(hit){
                 loadHits++;
+                cout << "load hit" << endl;
             }else{
-                // determine index using eviction method.
+                
+                cout << "load miss" << endl;
                 ull index = 0;
-                if(cache[setIndexBits].full == false){
+                if(cache[setIndexBits].fifo.size() != blocks){
                     for(auto &block : cache[setIndexBits].SetBlocks){
                         if (block.validBit == false){
                             index = block.setIndex;
@@ -101,6 +101,7 @@ class Cache {
                     writeToMemory++;
                     cache[setIndexBits].SetBlocks[index].validBit = true;
                     cache[setIndexBits].SetBlocks[index].tagBits = tagValue;
+                    cache[setIndexBits].SetBlocks[index].dirtyBit = false;
                 }else{
                     cache[setIndexBits].SetBlocks[index].validBit = true;
                     cache[setIndexBits].SetBlocks[index].tagBits = tagValue;
@@ -112,12 +113,10 @@ class Cache {
 
 
         void store(ull adr, ull setIndexBits,ull blockOffsetBits,ull tagValue,ull setNum,ull offset,bool hit,ull index){
-            stores++;
-            cout << "store " << adr << endl;
-            // cout << setIndexBits << " "  << blockOffsetBits << " " << tagBits << " " << setNum << " " << offset << endl;
-            
+            stores++;            
 
             if(hit){
+                cout << "store hit" << endl;
                 storeHits++;
                 if(writeThrough){
                     //writeThrough
@@ -126,13 +125,29 @@ class Cache {
                 }else{
                     //writeBack
                     cache[setIndexBits].SetBlocks[index].dirtyBit == true;                    
-                    cache[setIndexBits].SetBlocks[index].validBit = true;
-                    cache[setIndexBits].SetBlocks[index].tagBits = tagValue;
                 }
             }else{
+                cout << "store miss" << endl;
                 storeMisses++;
                 if(writeAllocate){
-                    ull allocatedIndex = 0;                   
+                    ull allocatedIndex = 0;       
+                    if(cache[setIndexBits].fifo.size() != blocks){
+                        for(auto &block : cache[setIndexBits].SetBlocks){
+                            if (block.validBit == false){
+                                allocatedIndex = block.setIndex;
+                                cache[setIndexBits].fifo.push(allocatedIndex);
+                                break;
+                            }
+                        }
+                    }else{
+                        allocatedIndex = cache[setIndexBits].fifo.front();
+                        cache[setIndexBits].fifo.pop();
+                        cache[setIndexBits].fifo.push(allocatedIndex);
+                    }
+                    if(cache[setIndexBits].SetBlocks[allocatedIndex].dirtyBit == true){
+                        writeToMemory++;
+                        cache[setIndexBits].SetBlocks[allocatedIndex].dirtyBit = false;
+                    }
                     if(writeThrough){
                         // find out allocated index
                         cache[setIndexBits].SetBlocks[allocatedIndex].validBit = true;
@@ -164,7 +179,6 @@ class Cache {
             // use address and cache parameters to calculate data relevant to that address
             int setIndexBits = log2(sets);
             int blockOffsetBits = log2(bytes);
-            // int tagBits = 32 - setIndexBits - blockOffsetBits;
 
             ull setNum = (adr/bytes) % sets;
             ull offset = adr % bytes;
@@ -191,28 +205,77 @@ class Cache {
                 store(adr,setIndexBits,blockOffsetBits,tagValue,setNum,offset,hit,index);
             }
         }
+        
+
+        void cleanup(){
+            for(auto& set1: cache){
+                for(auto& block1: set1.SetBlocks){
+                    if(block1.dirtyBit == true){
+                        writeToMemory++;
+                    }
+                }
+            }
+        }
+        void print_statistics(){
+            cout << "Total loads: " << loads << endl;
+            cout << "Total stores: " << stores << endl;
+            cout << "Load hits: " << loadHits << endl;
+            cout << "Load misses: " << loadMisses << endl;
+            cout << "Store hits: " << storeHits << endl;
+            cout << "Store misses: " << storeMisses << endl;
+            cout << "Total cycles: " << cycles + 100*(writeToMemory+readFromMemory)*((bytes)/4) << endl;
+        }
 };
 
+int main(int argc, char* argv[]) {
 
+    ull sets = stoi(argv[1]);
+    ull blocks = stoi(argv[2]);
+    ull bytes = stoi(argv[3]);
+    string wa = argv[4];
+    string wb = argv[5];
+    string f = argv[6];
 
-int main(){
+    bool writeAllocate = (wa == "write-allocate");
+    bool writeThrough = (wb == "write-through");
+    bool fifo = (f == "fifo");
 
-    Cache cache(4,4,4,true,true,true);
+    Cache cache(sets,blocks,bytes,writeAllocate,writeThrough,fifo);
 
-    ifstream fin("trace_file_test");
-    string line;
-    string a, b, c;
+    string a;
+    string b;
+    string c;
 
-    while (getline(fin, line))
-    {
-        istringstream ss(line);
-        ss >> a >> b >> c ;
-
-        char type = a[0];
-        // cout << a << " " << b << " " << c << endl;
+    while(cin >> a){
+        char type= a[0];
+        cin >> b;
+        cin >> c;
         cache.updateCache(type,b);
-        
+
     }
+    cache.cleanup();
+    cache.print_statistics();
 
     return 0;
 }
+
+// int main(){
+//     Cache cache(4,4,16,true,false,true);
+
+//     ifstream fin("testgen.txt");
+//     string line;
+//     string a,b,c;
+
+//     while(getline(fin,line)){
+//         istringstream ss(line);
+//         ss >> a >> b >> c;
+
+//         char type = a[0];
+
+//         cache.updateCache(type,a);
+//     }
+//     cache.cleanup();
+//     cache.print_statistics();
+
+
+// }

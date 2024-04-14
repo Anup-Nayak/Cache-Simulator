@@ -1,0 +1,17 @@
+g++ -g main.cpp -o main.exe
+gdb main
+
+br main
+
+br line_number
+
+
+step(step into)
+next (skip a segment)
+
+continue (next breakpoint)
+
+info args/locals
+
+print (specific)
+
