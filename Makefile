@@ -1,8 +1,11 @@
 all: run
 
 run:
-	g++ main.cpp -o cacheSim
-	./cacheSim 4 4 16 write-allocate write-back fifo < testgen.txt
+	g++ -Wall -Wextra -pedantic -g main.cpp -o cacheSim.exe
+	./cacheSim.exe 4 4 16 write-allocate write-back lru < testgen.txt
+	
 
+clean:
+	rm -f *.exe
+	rm -f *.o
 
-# -Wall -Wextra -pedantic -g

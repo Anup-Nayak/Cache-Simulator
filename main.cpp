@@ -26,6 +26,7 @@ struct CacheBlock {
 struct Set {
     vector<CacheBlock> SetBlocks;
     queue <int> fifo;
+    vector<int> ageBits;
 };
 
 
@@ -64,47 +65,67 @@ class Cache {
             cache.resize(sets);
             for(ull i =0; i<sets; i++){
                 cache[i].SetBlocks.resize(blocks, CacheBlock());
+                cache[i].ageBits.resize(blocks,0);
                 for(ull j=0;j<blocks;j++){
                     cache[i].SetBlocks[j].setIndex = j;
+                    cache[i].ageBits[j] = j;
                 }
+                
             }
             
         }
 
 
-        void load(ull adr, ull setIndexBits,ull blockOffsetBits,ull tagValue,ull setNum,ull offset,bool hit,ull index){
+        void load(ull tagValue,ull setNum,bool hit,ull index){
             
             loads++;
             
             if(hit){
                 loadHits++;
-                cout << "load hit" << endl;
+                if(!fifo){
+                    cache[setNum].ageBits[index] = blocks;
+                    for(ull i=0;i<blocks;i++){
+                        cache[setNum].ageBits[i]--;
+                    }
+                }
+                // cout << "load hit" << endl;
             }else{
                 
-                cout << "load miss" << endl;
+                // cout << "load miss" << endl;
                 ull index = 0;
-                if(cache[setIndexBits].fifo.size() != blocks){
-                    for(auto &block : cache[setIndexBits].SetBlocks){
-                        if (block.validBit == false){
-                            index = block.setIndex;
-                            cache[setIndexBits].fifo.push(index);
-                            break;
+                if(fifo){
+                    if(cache[setNum].fifo.size() != blocks){
+                        for(auto &block : cache[setNum].SetBlocks){
+                            if (block.validBit == false){
+                                index = block.setIndex;
+                                cache[setNum].fifo.push(index);
+                                break;
+                            }
                         }
+                    }else{
+                        index = cache[setNum].fifo.front();
+                        cache[setNum].fifo.pop();
+                        cache[setNum].fifo.push(index);
                     }
                 }else{
-                    index = cache[setIndexBits].fifo.front();
-                    cache[setIndexBits].fifo.pop();
-                    cache[setIndexBits].fifo.push(index);
+                    vector<int> vec = cache[setNum].ageBits;
+                    auto minIter = min_element(vec.begin(), vec.end());
+                    index = minIter - vec.begin();
+
+                    cache[setNum].ageBits[index] = blocks;
+                    for(ull i=0;i<blocks;i++){
+                        cache[setNum].ageBits[i]--;
+                    }
                 }
-                if(cache[setIndexBits].SetBlocks[index].dirtyBit == true){
+                if(cache[setNum].SetBlocks[index].dirtyBit == true){
                     // store to main memory
                     writeToMemory++;
-                    cache[setIndexBits].SetBlocks[index].validBit = true;
-                    cache[setIndexBits].SetBlocks[index].tagBits = tagValue;
-                    cache[setIndexBits].SetBlocks[index].dirtyBit = false;
+                    cache[setNum].SetBlocks[index].validBit = true;
+                    cache[setNum].SetBlocks[index].tagBits = tagValue;
+                    cache[setNum].SetBlocks[index].dirtyBit = false;
                 }else{
-                    cache[setIndexBits].SetBlocks[index].validBit = true;
-                    cache[setIndexBits].SetBlocks[index].tagBits = tagValue;
+                    cache[setNum].SetBlocks[index].validBit = true;
+                    cache[setNum].SetBlocks[index].tagBits = tagValue;
                 }
                 loadMisses++;
                 readFromMemory++;
@@ -112,11 +133,11 @@ class Cache {
         };
 
 
-        void store(ull adr, ull setIndexBits,ull blockOffsetBits,ull tagValue,ull setNum,ull offset,bool hit,ull index){
+        void store(ull tagValue,ull setNum,bool hit,ull index){
             stores++;            
 
             if(hit){
-                cout << "store hit" << endl;
+                // cout << "store hit" << endl;
                 storeHits++;
                 if(writeThrough){
                     //writeThrough
@@ -124,39 +145,56 @@ class Cache {
 
                 }else{
                     //writeBack
-                    cache[setIndexBits].SetBlocks[index].dirtyBit == true;                    
+                    cache[setNum].SetBlocks[index].dirtyBit = true;                    
+                }
+                if(!fifo){
+                    cache[setNum].ageBits[index] = blocks;
+                    for(ull i=0;i<blocks;i++){
+                        cache[setNum].ageBits[i]--;
+                    }
                 }
             }else{
-                cout << "store miss" << endl;
+                // cout << "store miss" << endl;
                 storeMisses++;
                 if(writeAllocate){
                     ull allocatedIndex = 0;       
-                    if(cache[setIndexBits].fifo.size() != blocks){
-                        for(auto &block : cache[setIndexBits].SetBlocks){
-                            if (block.validBit == false){
-                                allocatedIndex = block.setIndex;
-                                cache[setIndexBits].fifo.push(allocatedIndex);
-                                break;
+                    if(fifo){
+                        if(cache[setNum].fifo.size() != blocks){
+                            for(auto &block : cache[setNum].SetBlocks){
+                                if (block.validBit == false){
+                                    allocatedIndex = block.setIndex;
+                                    cache[setNum].fifo.push(allocatedIndex);
+                                    break;
+                                }
                             }
+                        }else{
+                            allocatedIndex = cache[setNum].fifo.front();
+                            cache[setNum].fifo.pop();
+                            cache[setNum].fifo.push(allocatedIndex);
                         }
                     }else{
-                        allocatedIndex = cache[setIndexBits].fifo.front();
-                        cache[setIndexBits].fifo.pop();
-                        cache[setIndexBits].fifo.push(allocatedIndex);
+                        vector<int> vec = cache[setNum].ageBits;
+                        auto minIter = min_element(vec.begin(), vec.end());
+                        allocatedIndex = minIter - vec.begin();
+
+                        cache[setNum].ageBits[allocatedIndex] = blocks;
+                        for(ull i=0;i<blocks;i++){
+                            cache[setNum].ageBits[i]--;
+                        }
                     }
-                    if(cache[setIndexBits].SetBlocks[allocatedIndex].dirtyBit == true){
+                    if(cache[setNum].SetBlocks[allocatedIndex].dirtyBit == true){
                         writeToMemory++;
-                        cache[setIndexBits].SetBlocks[allocatedIndex].dirtyBit = false;
+                        cache[setNum].SetBlocks[allocatedIndex].dirtyBit = false;
                     }
                     if(writeThrough){
                         // find out allocated index
-                        cache[setIndexBits].SetBlocks[allocatedIndex].validBit = true;
-                        cache[setIndexBits].SetBlocks[allocatedIndex].tagBits = tagValue;
+                        cache[setNum].SetBlocks[allocatedIndex].validBit = true;
+                        cache[setNum].SetBlocks[allocatedIndex].tagBits = tagValue;
                         writeToMemory++;
                     }else{
-                        cache[setIndexBits].SetBlocks[allocatedIndex].dirtyBit == true;                    
-                        cache[setIndexBits].SetBlocks[allocatedIndex].validBit = true;
-                        cache[setIndexBits].SetBlocks[allocatedIndex].tagBits = tagValue;
+                        cache[setNum].SetBlocks[allocatedIndex].dirtyBit = true;                    
+                        cache[setNum].SetBlocks[allocatedIndex].validBit = true;
+                        cache[setNum].SetBlocks[allocatedIndex].tagBits = tagValue;
                     }
                 }else{
                     writeToMemory++;
@@ -181,13 +219,12 @@ class Cache {
             int blockOffsetBits = log2(bytes);
 
             ull setNum = (adr/bytes) % sets;
-            ull offset = adr % bytes;
             ull tagValue = adr >> (setIndexBits + blockOffsetBits);
 
             // check if it is a hit
             bool hit = false;
             ull index = 0;
-            for(auto& block : cache[setIndexBits].SetBlocks){
+            for(auto& block : cache[setNum].SetBlocks){
                 index++;
                 if(block.validBit && block.tagBits == tagValue){
                     hit = true;
@@ -198,11 +235,11 @@ class Cache {
         
             if(type == 'l'){
                 cycles++;
-                load(adr,setIndexBits,blockOffsetBits,tagValue,setNum,offset,hit,index);
+                load(tagValue,setNum,hit,index);
             }
             else if(type == 's'){
                 cycles++;
-                store(adr,setIndexBits,blockOffsetBits,tagValue,setNum,offset,hit,index);
+                store(tagValue,setNum,hit,index);
             }
         }
         

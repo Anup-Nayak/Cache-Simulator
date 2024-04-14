@@ -15,3 +15,10 @@ info args/locals
 
 print (specific)
 
+
+
+valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./cacheSim.exe 4 4 16 write-allocate write-back fifo
+
+
+python3 tester.py 32 4 4 16 write-allocate write-back fifo
+
