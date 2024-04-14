@@ -7,10 +7,6 @@
 #include<string>
 #include<queue>
 
-// memory errors (invalid read and writes) 10%
-// memory leaks 5%
-// makefile + clean
-
 using namespace std;
 
 #define ull unsigned long long
@@ -88,10 +84,10 @@ class Cache {
                         cache[setNum].ageBits[i]--;
                     }
                 }
-                // cout << "load hit" << endl;
+                
             }else{
                 
-                // cout << "load miss" << endl;
+                
                 ull index = 0;
                 if(fifo){
                     if(cache[setNum].fifo.size() != blocks){
@@ -118,7 +114,7 @@ class Cache {
                     }
                 }
                 if(cache[setNum].SetBlocks[index].dirtyBit == true){
-                    // store to main memory
+                    
                     writeToMemory++;
                     cache[setNum].SetBlocks[index].validBit = true;
                     cache[setNum].SetBlocks[index].tagBits = tagValue;
@@ -137,14 +133,14 @@ class Cache {
             stores++;            
 
             if(hit){
-                // cout << "store hit" << endl;
+                
                 storeHits++;
                 if(writeThrough){
-                    //writeThrough
+                    
                     writeToMemory++;
 
                 }else{
-                    //writeBack
+                    
                     cache[setNum].SetBlocks[index].dirtyBit = true;                    
                 }
                 if(!fifo){
@@ -154,7 +150,7 @@ class Cache {
                     }
                 }
             }else{
-                // cout << "store miss" << endl;
+                
                 storeMisses++;
                 if(writeAllocate){
                     ull allocatedIndex = 0;       
@@ -187,7 +183,7 @@ class Cache {
                         cache[setNum].SetBlocks[allocatedIndex].dirtyBit = false;
                     }
                     if(writeThrough){
-                        // find out allocated index
+                        
                         cache[setNum].SetBlocks[allocatedIndex].validBit = true;
                         cache[setNum].SetBlocks[allocatedIndex].tagBits = tagValue;
                         writeToMemory++;
@@ -208,20 +204,20 @@ class Cache {
 
         void updateCache(char type, string& address){
 
-            // calculate address
+            
             stringstream ss;
             ss << hex << address;
             ull adr;
             ss >> adr;
 
-            // use address and cache parameters to calculate data relevant to that address
+            
             int setIndexBits = log2(sets);
             int blockOffsetBits = log2(bytes);
 
             ull setNum = (adr/bytes) % sets;
             ull tagValue = adr >> (setIndexBits + blockOffsetBits);
 
-            // check if it is a hit
+            
             bool hit = false;
             ull index = 0;
             for(auto& block : cache[setNum].SetBlocks){
@@ -264,17 +260,17 @@ class Cache {
         }
 };
 
-int main(int argc, char* argv[]) {
+int main(int , char* argv[]) {
 
     ull sets = stoi(argv[1]);
     ull blocks = stoi(argv[2]);
     ull bytes = stoi(argv[3]);
     string wa = argv[4];
-    string wb = argv[5];
+    string wt = argv[5];
     string f = argv[6];
 
     bool writeAllocate = (wa == "write-allocate");
-    bool writeThrough = (wb == "write-through");
+    bool writeThrough = (wt == "write-through");
     bool fifo = (f == "fifo");
 
     Cache cache(sets,blocks,bytes,writeAllocate,writeThrough,fifo);
