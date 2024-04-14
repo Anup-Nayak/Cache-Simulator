@@ -5,6 +5,7 @@
 #include<fstream>
 #include<cmath>
 #include<string>
+#include<queue>
 
 // memory errors (invalid read and writes) 10%
 // memory leaks 5%
@@ -14,10 +15,17 @@ using namespace std;
 
 #define ull unsigned long long
 
+struct Set {
+    vector<CacheBlock> SetBlocks;
+    queue <int> fifo;
+    bool full = false;
+};
+
 struct CacheBlock {
     bool validBit = false;
     bool dirtyBit = false;
     ull tagBits = 0;
+    ull setIndex = -1;
     // unsigned long long lastUsed = 0; 
 };
 
@@ -41,7 +49,7 @@ class Cache {
         ull writeToMemory=0;
         ull readFromMemory=0;
 
-        vector<vector<CacheBlock>> cache;
+        vector<Set> cache;
 
     public:
 
@@ -53,12 +61,20 @@ class Cache {
             writeThrough = writeThroughp;
             fifo = fifop;
 
-            cache.resize(sets, vector<CacheBlock>(blocks));
+            cache.resize(sets);
+            for(ull i =0; i<sets; i++){
+                cache[i].SetBlocks.resize(blocks, CacheBlock());
+                for(ull j=0;j<blocks;j++){
+                    cache[i].SetBlocks[j].setIndex = j;
+                }
+            }
+            
         }
 
 
-        void load(ull adr, ull setIndexBits,ull blockOffsetBits,ull tagValue,ull setNum,ull offset,bool hit){
+        void load(ull adr, ull setIndexBits,ull blockOffsetBits,ull tagValue,ull setNum,ull offset,bool hit,ull index){
             // lru and fifo part
+            
             loads++;
             cout << "load " << adr << endl;
             
@@ -67,12 +83,27 @@ class Cache {
             }else{
                 // determine index using eviction method.
                 ull index = 0;
-                if(cache[setIndexBits][index].dirtyBit == true){
+                if(cache[setIndexBits].full == false){
+                    for(auto &block : cache[setIndexBits].SetBlocks){
+                        if (block.validBit == false){
+                            index = block.setIndex;
+                            cache[setIndexBits].fifo.push(index);
+                            break;
+                        }
+                    }
+                }else{
+                    index = cache[setIndexBits].fifo.front();
+                    cache[setIndexBits].fifo.pop();
+                    cache[setIndexBits].fifo.push(index);
+                }
+                if(cache[setIndexBits].SetBlocks[index].dirtyBit == true){
                     // store to main memory
                     writeToMemory++;
+                    cache[setIndexBits].SetBlocks[index].validBit = true;
+                    cache[setIndexBits].SetBlocks[index].tagBits = tagValue;
                 }else{
-                    cache[setIndexBits][index].validBit = true;
-                    cache[setIndexBits][index].tagBits = tagValue;
+                    cache[setIndexBits].SetBlocks[index].validBit = true;
+                    cache[setIndexBits].SetBlocks[index].tagBits = tagValue;
                 }
                 loadMisses++;
                 readFromMemory++;
@@ -94,9 +125,9 @@ class Cache {
 
                 }else{
                     //writeBack
-                    cache[setIndexBits][index].dirtyBit == true;                    
-                    cache[setIndexBits][index].validBit = true;
-                    cache[setIndexBits][index].tagBits = tagValue;
+                    cache[setIndexBits].SetBlocks[index].dirtyBit == true;                    
+                    cache[setIndexBits].SetBlocks[index].validBit = true;
+                    cache[setIndexBits].SetBlocks[index].tagBits = tagValue;
                 }
             }else{
                 storeMisses++;
@@ -104,13 +135,13 @@ class Cache {
                     ull allocatedIndex = 0;                   
                     if(writeThrough){
                         // find out allocated index
-                        cache[setIndexBits][allocatedIndex].validBit = true;
-                        cache[setIndexBits][allocatedIndex].tagBits = tagValue;
+                        cache[setIndexBits].SetBlocks[allocatedIndex].validBit = true;
+                        cache[setIndexBits].SetBlocks[allocatedIndex].tagBits = tagValue;
                         writeToMemory++;
                     }else{
-                        cache[setIndexBits][allocatedIndex].dirtyBit == true;                    
-                        cache[setIndexBits][allocatedIndex].validBit = true;
-                        cache[setIndexBits][allocatedIndex].tagBits = tagValue;
+                        cache[setIndexBits].SetBlocks[allocatedIndex].dirtyBit == true;                    
+                        cache[setIndexBits].SetBlocks[allocatedIndex].validBit = true;
+                        cache[setIndexBits].SetBlocks[allocatedIndex].tagBits = tagValue;
                     }
                 }else{
                     writeToMemory++;
@@ -142,17 +173,18 @@ class Cache {
             // check if it is a hit
             bool hit = false;
             ull index = 0;
-            for(auto& block : cache[setIndexBits]){
+            for(auto& block : cache[setIndexBits].SetBlocks){
+                index++;
                 if(block.validBit && block.tagBits == tagValue){
                     hit = true;
-                    index++;
+                    break;
                 }
             }
 
         
             if(type == 'l'){
                 cycles++;
-                load(adr,setIndexBits,blockOffsetBits,tagValue,setNum,offset,hit);
+                load(adr,setIndexBits,blockOffsetBits,tagValue,setNum,offset,hit,index);
             }
             else if(type == 's'){
                 cycles++;
