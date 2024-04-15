@@ -72,14 +72,14 @@ class Cache {
         }
 
 
-        void load(ull tagValue,ull setNum,bool hit,ull index){
+        void load(ull tagValue,ull setNum,bool hit,ull hitIndex){
             
             loads++;
             
             if(hit){
                 loadHits++;
                 if(!fifo){
-                    cache[setNum].ageBits[index] = blocks;
+                    cache[setNum].ageBits[hitIndex] = blocks;
                     for(ull i=0;i<blocks;i++){
                         cache[setNum].ageBits[i]--;
                     }
@@ -129,7 +129,7 @@ class Cache {
         };
 
 
-        void store(ull tagValue,ull setNum,bool hit,ull index){
+        void store(ull tagValue,ull setNum,bool hit,ull hitIndex){
             stores++;            
 
             if(hit){
@@ -141,10 +141,10 @@ class Cache {
 
                 }else{
                     
-                    cache[setNum].SetBlocks[index].dirtyBit = true;                    
+                    cache[setNum].SetBlocks[hitIndex].dirtyBit = true;                    
                 }
                 if(!fifo){
-                    cache[setNum].ageBits[index] = blocks;
+                    cache[setNum].ageBits[hitIndex] = blocks;
                     for(ull i=0;i<blocks;i++){
                         cache[setNum].ageBits[i]--;
                     }
@@ -249,6 +249,7 @@ class Cache {
                 }
             }
         }
+        
         void print_statistics(){
             cout << "Total loads: " << loads << endl;
             cout << "Total stores: " << stores << endl;
