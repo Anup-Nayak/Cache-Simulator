@@ -6,10 +6,93 @@
 #include<cmath>
 #include<string>
 #include<queue>
+#include<climits>
 
 using namespace std;
 
 #define ull unsigned long long
+
+
+struct Node {
+    int data;
+    Node *next, *prev;
+
+    Node(int val){
+        data = val;
+        next = nullptr;
+        prev = nullptr;
+    }
+};
+
+class LinkedList {
+
+public:
+    Node *head;
+    Node *tail;
+    LinkedList(){
+        head = NULL;
+        tail = NULL;
+        
+    }
+
+    void insertAtLast(int val) {
+        Node *newNode = new Node(val);
+        if (!head) {
+            head = newNode;
+            tail = newNode;
+        } else {
+            newNode->prev = tail;
+            tail->next = newNode;
+            tail = newNode;
+        }
+    }
+    
+    int removeFromTop() {
+        int data = -1;
+        if (head != NULL) {
+            Node *temp = head;
+            data = temp->data;
+            head = head->next;
+            temp->next = NULL;
+            delete temp;
+            temp = NULL;
+            if (head) {
+                head->prev = NULL;
+            } else {
+                tail = NULL;
+            }
+        }
+        return data;
+    }
+
+    void transferToEnd(Node *n) {
+        if (n->next == NULL) return;
+        if (n->prev == NULL) {
+            head = n->next;
+            head->prev = NULL;
+            tail->next = n;
+            n->prev = tail;
+            n->next = NULL;
+            tail = n;
+            return;
+        }
+        Node *p = n->prev;
+        Node *ne = n->next;
+        p->next = ne;
+        ne->prev = p;
+        tail->next = n;
+        n->prev = tail;
+        tail = n;
+        n->next = NULL;
+    }
+
+    ~LinkedList() {
+        while (head) {
+            removeFromTop();
+        }
+    }
+};
+
 
 struct CacheBlock {
     bool validBit = false;
@@ -22,7 +105,12 @@ struct CacheBlock {
 struct Set {
     vector<CacheBlock> SetBlocks;
     queue <int> fifo;
-    vector<int> ageBits;
+    LinkedList lru;
+    unordered_map<int,Node* > data;
+    Set(){
+        lru = LinkedList();
+    }
+    // vector<int> ageBits;
 };
 
 
@@ -57,14 +145,13 @@ class Cache {
             writeAllocate = writeAllocatep;
             writeThrough = writeThroughp;
             fifo = fifop;
-
             cache.resize(sets);
             for(ull i =0; i<sets; i++){
                 cache[i].SetBlocks.resize(blocks, CacheBlock());
-                cache[i].ageBits.resize(blocks,0);
+                
                 for(ull j=0;j<blocks;j++){
                     cache[i].SetBlocks[j].setIndex = j;
-                    cache[i].ageBits[j] = j;
+                    
                 }
                 
             }
@@ -72,57 +159,77 @@ class Cache {
         }
 
 
-        void load(ull tagValue,ull setNum,bool hit,ull hitIndex){
+        void load(ull tagValue,ull setNum,bool hit){
             
             loads++;
             
             if(hit){
                 loadHits++;
+                cycles++;
+                
                 if(!fifo){
-                    cache[setNum].ageBits[hitIndex] = blocks;
-                    for(ull i=0;i<blocks;i++){
-                        cache[setNum].ageBits[i]--;
-                    }
+                    Node *curr = cache[setNum].data[tagValue];
+                    cache[setNum].lru.transferToEnd(curr);
+                    cache[setNum].data[tagValue] = cache[setNum].lru.tail;
                 }
                 
             }else{
                 
-                
-                ull index = 0;
+                ull allocatedIndex = 0;
                 if(fifo){
                     if(cache[setNum].fifo.size() != blocks){
                         for(auto &block : cache[setNum].SetBlocks){
                             if (block.validBit == false){
-                                index = block.setIndex;
-                                cache[setNum].fifo.push(index);
+                                allocatedIndex = block.setIndex;
+                                cache[setNum].fifo.push(allocatedIndex);
                                 break;
                             }
                         }
                     }else{
-                        index = cache[setNum].fifo.front();
+                        allocatedIndex = cache[setNum].fifo.front();
                         cache[setNum].fifo.pop();
-                        cache[setNum].fifo.push(index);
+                        cache[setNum].fifo.push(allocatedIndex);
                     }
                 }else{
-                    vector<int> vec = cache[setNum].ageBits;
-                    auto minIter = min_element(vec.begin(), vec.end());
-                    index = minIter - vec.begin();
+                    bool emptyBlock = false;
+                    for(auto& block: cache[setNum].SetBlocks){
+                        if(block.validBit == false){
+                            allocatedIndex = block.setIndex;
+                            emptyBlock=true;
+                            cache[setNum].lru.insertAtLast(allocatedIndex);
+                            cache[setNum].data[tagValue] = cache[setNum].lru.tail;
+                            break;
+                        }
+                    }
 
-                    cache[setNum].ageBits[index] = blocks;
-                    for(ull i=0;i<blocks;i++){
-                        cache[setNum].ageBits[i]--;
+                    if(!emptyBlock){
+                        allocatedIndex = cache[setNum].lru.removeFromTop();
+                        cache[setNum].lru.insertAtLast(allocatedIndex);
+                        cache[setNum].data[tagValue] = cache[setNum].lru.tail;
+                    }
+
+                }
+                if(writeThrough){
+                    cycles = cycles + 1 + 100*(bytes/4);
+                }else{
+                    if(cache[setNum].SetBlocks[allocatedIndex].dirtyBit){
+                        cycles = cycles + 1 + 100*(bytes/4) + 100*(bytes/4);
+                    }else{
+                        cycles = cycles + 1 + 100*(bytes/4);
                     }
                 }
-                if(cache[setNum].SetBlocks[index].dirtyBit == true){
+                if(cache[setNum].SetBlocks[allocatedIndex].dirtyBit == true){
                     
                     writeToMemory++;
-                    cache[setNum].SetBlocks[index].validBit = true;
-                    cache[setNum].SetBlocks[index].tagBits = tagValue;
-                    cache[setNum].SetBlocks[index].dirtyBit = false;
+                    cache[setNum].SetBlocks[allocatedIndex].validBit = true;
+                    cache[setNum].SetBlocks[allocatedIndex].tagBits = tagValue;
+                    cache[setNum].SetBlocks[allocatedIndex].dirtyBit = false;
                 }else{
-                    cache[setNum].SetBlocks[index].validBit = true;
-                    cache[setNum].SetBlocks[index].tagBits = tagValue;
+                    
+                    cache[setNum].SetBlocks[allocatedIndex].validBit = true;
+                    cache[setNum].SetBlocks[allocatedIndex].tagBits = tagValue;
                 }
+                
                 loadMisses++;
                 readFromMemory++;
             }
@@ -135,24 +242,27 @@ class Cache {
             if(hit){
                 
                 storeHits++;
+
                 if(writeThrough){
-                    
+                    cycles = cycles + 1 + 100;
                     writeToMemory++;
 
                 }else{
-                    
+                    cycles++;
                     cache[setNum].SetBlocks[hitIndex].dirtyBit = true;                    
                 }
                 if(!fifo){
-                    cache[setNum].ageBits[hitIndex] = blocks;
-                    for(ull i=0;i<blocks;i++){
-                        cache[setNum].ageBits[i]--;
-                    }
+                    
+                    Node *curr = cache[setNum].data[tagValue];
+                    cache[setNum].lru.transferToEnd(curr);
+                    cache[setNum].data[tagValue] = cache[setNum].lru.tail;
+                    
                 }
             }else{
                 
                 storeMisses++;
                 if(writeAllocate){
+                    
                     ull allocatedIndex = 0;       
                     if(fifo){
                         if(cache[setNum].fifo.size() != blocks){
@@ -169,18 +279,41 @@ class Cache {
                             cache[setNum].fifo.push(allocatedIndex);
                         }
                     }else{
-                        vector<int> vec = cache[setNum].ageBits;
-                        auto minIter = min_element(vec.begin(), vec.end());
-                        allocatedIndex = minIter - vec.begin();
 
-                        cache[setNum].ageBits[allocatedIndex] = blocks;
-                        for(ull i=0;i<blocks;i++){
-                            cache[setNum].ageBits[i]--;
+                        bool emptyBlock = false;
+                        for(auto& block: cache[setNum].SetBlocks){
+                            if(block.validBit == false){
+                                allocatedIndex = block.setIndex;
+                                emptyBlock=true;
+                                cache[setNum].lru.insertAtLast(allocatedIndex);
+                                cache[setNum].data[tagValue] = cache[setNum].lru.tail;
+                                break;
+                            }
+                        }
+
+                        if(!emptyBlock){
+                            allocatedIndex = cache[setNum].lru.removeFromTop();
+                            cache[setNum].lru.insertAtLast(allocatedIndex);
+                            cache[setNum].data[tagValue] = cache[setNum].lru.tail;
+                        }
+
+                
+                    }
+
+                    if(writeThrough){
+                        cycles = cycles + 101 + 100*(bytes/4);
+                    }else{
+                        if(cache[setNum].SetBlocks[allocatedIndex].dirtyBit){
+                            cycles = cycles + 200*(bytes/4) + 1;
+                        }else{
+                            cycles = cycles + 100*(bytes/4) + 1;
                         }
                     }
+                    
                     if(cache[setNum].SetBlocks[allocatedIndex].dirtyBit == true){
                         writeToMemory++;
                         cache[setNum].SetBlocks[allocatedIndex].dirtyBit = false;
+                        
                     }
                     if(writeThrough){
                         
@@ -191,9 +324,13 @@ class Cache {
                         cache[setNum].SetBlocks[allocatedIndex].dirtyBit = true;                    
                         cache[setNum].SetBlocks[allocatedIndex].validBit = true;
                         cache[setNum].SetBlocks[allocatedIndex].tagBits = tagValue;
+                        
                     }
+
+                    
                 }else{
                     writeToMemory++;
+                    cycles = cycles + 101;
                 }
             }
             
@@ -230,11 +367,11 @@ class Cache {
 
         
             if(type == 'l'){
-                cycles++;
-                load(tagValue,setNum,hit,index);
+                
+                load(tagValue,setNum,hit);
             }
             else if(type == 's'){
-                cycles++;
+                
                 store(tagValue,setNum,hit,index);
             }
         }
@@ -244,7 +381,7 @@ class Cache {
             for(auto& set1: cache){
                 for(auto& block1: set1.SetBlocks){
                     if(block1.dirtyBit == true){
-                        writeToMemory++;
+                        cycles += 100*(bytes/4);
                     }
                 }
             }
@@ -257,7 +394,7 @@ class Cache {
             cout << "Load misses: " << loadMisses << endl;
             cout << "Store hits: " << storeHits << endl;
             cout << "Store misses: " << storeMisses << endl;
-            cout << "Total cycles: " << cycles + 100*(writeToMemory+readFromMemory)*((bytes)/4) << endl;
+            cout << "Total cycles: " << cycles << endl;
         }
 };
 

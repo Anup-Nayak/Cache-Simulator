@@ -59,3 +59,5 @@ To clean the object and executable files:
 **TESTING**
 
 This implementation of CacheSimulator has been rigorously tested with simple hand-written testcases as well as automated Big-Test-Cases.
+
+All trace-files have also been run.
