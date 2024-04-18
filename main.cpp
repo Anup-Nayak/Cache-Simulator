@@ -144,16 +144,15 @@ class Cache {
             writeAllocate = writeAllocatep;
             writeThrough = writeThroughp;
             fifo = fifop;
-            cache.resize(sets);
+            cache.resize(sets,Set());
             for(ull i =0; i<sets; i++){
-                cache[i].SetBlocks.resize(blocks, CacheBlock());
-                
+                cache[i].SetBlocks.resize(blocks+1, CacheBlock());
                 for(ull j=0;j<blocks;j++){
                     cache[i].SetBlocks[j].setIndex = j;
                     
                 }
-                
             }
+                
             
         }
 
@@ -177,7 +176,9 @@ class Cache {
                 ull allocatedIndex = 0;
                 if(fifo){
                     if(cache[setNum].fifo.size() != blocks){
-                        for(auto &block : cache[setNum].SetBlocks){
+                        for(ull i=0;i<blocks;i++){
+                            CacheBlock block = cache[setNum].SetBlocks[i];
+                        // for(auto &block : cache[setNum].SetBlocks){
                             if (block.validBit == false){
                                 allocatedIndex = block.setIndex;
                                 cache[setNum].fifo.push(allocatedIndex);
@@ -191,7 +192,9 @@ class Cache {
                     }
                 }else{
                     bool emptyBlock = false;
-                    for(auto& block: cache[setNum].SetBlocks){
+                    for(ull i=0;i<blocks;i++){
+                        CacheBlock block = cache[setNum].SetBlocks[i];
+                    // for(auto& block: cache[setNum].SetBlocks){
                         if(block.validBit == false){
                             allocatedIndex = block.setIndex;
                             emptyBlock=true;
@@ -265,7 +268,9 @@ class Cache {
                     ull allocatedIndex = 0;       
                     if(fifo){
                         if(cache[setNum].fifo.size() != blocks){
-                            for(auto &block : cache[setNum].SetBlocks){
+                            for(ull i=0;i<blocks;i++){
+                                CacheBlock block = cache[setNum].SetBlocks[i];
+                            // for(auto &block : cache[setNum].SetBlocks){
                                 if (block.validBit == false){
                                     allocatedIndex = block.setIndex;
                                     cache[setNum].fifo.push(allocatedIndex);
@@ -280,7 +285,9 @@ class Cache {
                     }else{
 
                         bool emptyBlock = false;
-                        for(auto& block: cache[setNum].SetBlocks){
+                        for(ull i=0;i<blocks;i++){
+                            CacheBlock block = cache[setNum].SetBlocks[i];
+                        // for(auto& block: cache[setNum].SetBlocks){
                             if(block.validBit == false){
                                 allocatedIndex = block.setIndex;
                                 emptyBlock=true;
@@ -356,7 +363,9 @@ class Cache {
             
             bool hit = false;
             ull index = 0;
-            for(auto& block : cache[setNum].SetBlocks){
+            for(ull i=0;i<blocks;i++){
+                CacheBlock block = cache[setNum].SetBlocks[i];
+            // for(auto& block : cache[setNum].SetBlocks){
                 index++;
                 if(block.validBit && block.tagBits == tagValue){
                     hit = true;
@@ -423,6 +432,7 @@ int main(int , char* argv[]) {
         cache.updateCache(type,b);
 
     }
+        
     cache.cleanup();
     cache.print_statistics();
 
