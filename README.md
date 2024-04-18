@@ -29,15 +29,15 @@ Sets along with the CacheBlock vector, store data relevant for implementation of
 6. Store Misses with *no-write-allocate* does a writeToMemory.
 7. Store Misses with write-allocate works with both write-through and write-back.
 8. *fifo* uses a simple *queue* storing index information for each Set.
-9. *LRU* is implemented using *AgeBits* that are maintained for each CacheBlock in all Sets.
+9. *LRU* is implemented using *linked-list and unordered_map* that are maintained for each CacheBlock in all Sets.
 10. fifo and LRU implementation in store and load remains similar.
-
+11. after all lines of the program are over, cache is checked for any dirty-bits remaining which are pushed into the memory when found. This ensures no data-hazards occur due to mismatch of data in cache and main memory.
 
 **OPTIMIZATIONS**
 
 1. In case of a load/store hit with that particular CacheBlock having dirtyBit, data is not written in Memory at that time to save cycles.
 
-2. *LRU* uses approximations as it is virtually impossible and extremely unfeasable to execute LRU at hardware level.
+2. *LRU* uses linked-list approach of a queue like data-structure.
 
 
 
@@ -49,7 +49,7 @@ To compile and create executable:
 
 To run the executable with cache parameters (change the parameters and input file as required):
 
-`./cacheSim.exe 256 64 16 write-allocate write-through fifo < testgen.txt`
+`./cacheSim 256 64 16 write-allocate write-through fifo < testgen.txt`
 
 To clean the object and executable files:
 

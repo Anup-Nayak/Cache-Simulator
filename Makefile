@@ -1,8 +1,8 @@
 all: run
 
 run:
-	g++ -Wall -Wextra -pedantic -g main.cpp -o cacheSim.exe
-	./cacheSim.exe 256 4 16 write-allocate write-back fifo < traces/gcc.trace
+	g++ -Wall -Wextra -pedantic -g main.cpp -o cacheSim
+	# ./cacheSim.exe 1 16384 16 write-allocate write-back lru < traces/swim.trace
 
 clean:
 	rm -f *.exe

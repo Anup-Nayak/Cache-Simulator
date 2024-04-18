@@ -1,4 +1,4 @@
-FILENAME=testgen.txt
+FILENAME=traces/swim.trace
 LOGFILE=anslog.txt
-HIT_RATE=20
+HIT_RATE=100
 MAX_ADDRESS=1000000000

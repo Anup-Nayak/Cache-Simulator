@@ -110,7 +110,6 @@ struct Set {
     Set(){
         lru = LinkedList();
     }
-    // vector<int> ageBits;
 };
 
 
@@ -137,7 +136,7 @@ class Cache {
         vector<Set> cache;
 
     public:
-
+        
         Cache(ull setsp,ull blocksp,ull bytesp,bool writeAllocatep,bool writeThroughp, bool fifop){
             sets = setsp;
             blocks = blocksp;
@@ -212,7 +211,7 @@ class Cache {
                 if(writeThrough){
                     cycles = cycles + 1 + 100*(bytes/4);
                 }else{
-                    if(cache[setNum].SetBlocks[allocatedIndex].dirtyBit){
+                    if(cache[setNum].SetBlocks[allocatedIndex].dirtyBit == true){
                         cycles = cycles + 1 + 100*(bytes/4) + 100*(bytes/4);
                     }else{
                         cycles = cycles + 1 + 100*(bytes/4);
@@ -248,7 +247,7 @@ class Cache {
                     writeToMemory++;
 
                 }else{
-                    cycles++;
+                    cycles = cycles + 1;
                     cache[setNum].SetBlocks[hitIndex].dirtyBit = true;                    
                 }
                 if(!fifo){
@@ -303,7 +302,7 @@ class Cache {
                     if(writeThrough){
                         cycles = cycles + 101 + 100*(bytes/4);
                     }else{
-                        if(cache[setNum].SetBlocks[allocatedIndex].dirtyBit){
+                        if(cache[setNum].SetBlocks[allocatedIndex].dirtyBit == true){
                             cycles = cycles + 200*(bytes/4) + 1;
                         }else{
                             cycles = cycles + 100*(bytes/4) + 1;
