@@ -10,12 +10,12 @@ Sets along with the CacheBlock vector, store data relevant for implementation of
 
 ## CACHE PARAMETERS
 
-• number of sets in the cache (a positive power-of-2)
-• number of blocks in each set (a positive power-of-2)
-• number of bytes in each block (a positive power-of-2, at least 4)
-• write-allocate or no-write-allocate
-• write-through or write-back
-• lru (least-recently-used) or fifo evictions
+• number of sets in the cache (a positive power-of-2)  
+• number of blocks in each set (a positive power-of-2)  
+• number of bytes in each block (a positive power-of-2, at least 4 )  
+• write-allocate or no-write-allocate  
+• write-through or write-back  
+• lru (least-recently-used) or fifo evictions  
 
 
 
